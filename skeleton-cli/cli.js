@@ -1,10 +1,16 @@
 #!/usr/bin/env node
 
-const fs = require('fs-extra');
-const path = require('path');
-const { execSync } = require('child_process');
-const chalk = require('chalk');
-const readline = require('readline');
+import fs from 'fs-extra';
+import path from 'path';
+import chalk from 'chalk';
+import readline from 'readline/promises';
+import { stdin as input, stdout as output } from 'process';
+import { execSync } from 'child_process';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 
 // recursively copy folder contents
 async function copyDir(src, dest) {
@@ -24,7 +30,7 @@ async function copyDir(src, dest) {
 
 // create the project folder and copy template files
 async function createProject(appName) {
-    const targetPath = path.join(process.cwd(), appName);
+    const targetPath = path.isAbsolute(appName) ? appName : path.join(process.cwd(), appName);
 
     if (fs.existsSync(targetPath)) {
         console.log(chalk.red(`❌ Folder '${appName}' already exists.`));
@@ -35,18 +41,6 @@ async function createProject(appName) {
 
     await copyDir(path.join(__dirname, 'template'), targetPath);
 
-//   console.log(chalk.blue(`📦 Installing dependencies... (this may take a minute)`));
-//   try {
-//     execSync('npm install', { cwd: path.join(targetPath, 'frontend'), stdio: 'inherit' });
-//     execSync('npm install', { cwd: path.join(targetPath, 'backend'), stdio: 'inherit' });
-//   } catch (err) {
-//     console.log(chalk.yellow('⚠️  Could not auto-install dependencies. Run them manually.'));
-//   }
-//
-//   console.log(chalk.green(`✅ Done! You can now:`));
-//   console.log(chalk.cyan(`\n  cd ${appName}`));
-//   console.log('  npm run dev   # Or run frontend/backend separately\n');
-
     console.log(chalk.green(`✅ Done creating project folder and files.`));
     console.log(chalk.cyan(`\nNext steps:`));
     console.log(`cd ${appName}`);
@@ -54,26 +48,32 @@ async function createProject(appName) {
     console.log(`npm run dev  # Then start your app\n`);
 }
 
-// prompt user for npm install confirmation
-function confirmNpmRun(query) {
-    const rl = readline.createInterface({
-        input: process.stdin,
-        output: process.stdout,
-    });
+// prompt user to install modules or automate them by request
+async function promptNpmInstall(appName) {
+    const targetPath = path.resolve(process.cwd(), appName);
+    const rl = readline.createInterface({ input, output });
 
-    return new Promise(resolve => rl.question(query, ans => {
-        rl.close();
-        resolve(ans.trim().toLowerCase());
-    }));
-}
+    const answer = (await rl.question('Do you want to run these commands automatically now? (y/n) ')).trim().toLowerCase();
+    rl.close();
 
-async function promptNpmInstall() {
-    const answer = await confirmNpmRun('Have you run npm install in frontend and backend? (y/n) ');
+    if (answer === 'y' || answer === 'yes') {
+        try {
+            console.log(chalk.blue('\nInstalling frontend dependencies...'));
+            execSync('npm install', { cwd: path.join(targetPath, 'frontend'), stdio: 'inherit' });
 
-    if (answer.toLowerCase() === 'y' || answer.toLowerCase() === 'yes') {
-        console.log(chalk.green('🎉 Great! You can now run the app.'));
+            console.log(chalk.blue('\nInstalling backend dependencies...'));
+            execSync('npm install', { cwd: path.join(targetPath, 'backend'), stdio: 'inherit' });
+
+            console.log(chalk.green('\n✅ Dependencies installed successfully!'));
+            console.log(chalk.cyan('You can now run your app with:'));
+            console.log('npm run dev  # inside both frontend and backend folders');
+        } catch (err) {
+            console.error(chalk.red('\n❌ npm install failed. Please check the errors above.'));
+            process.exit(1);
+        }
     } else {
-        console.log(chalk.yellow('⚠️  Please run npm install manually inside frontend and backend before running the app.  ⚠️'));
+        console.log(chalk.yellow('\nOkay, remember to run npm install inside frontend and backend folders before running your app.'));
+        process.exit(0);
     }
 }
 
