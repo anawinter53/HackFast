@@ -77,18 +77,20 @@ async function promptNpmInstall(appName) {
     }
 }
 
-// CLI entry point
+// cli entry point
 async function main() {
     const args = process.argv.slice(2);
 
+    // ensure the new keyword is used in cli command
     if (args.length < 2 || args[0] !== 'new') {
         console.log(chalk.yellow('Usage: node cli.js new <app-name>'));
         process.exit(1);
     }
 
+    // run functions passing the app name from cli command
     try {
         await createProject(args[1]);
-        await promptNpmInstall();
+        await promptNpmInstall(args[1]);
     } catch (err) {
         console.log(chalk.red(`❌ Error: ${err.message}`));
         process.exit(1);
